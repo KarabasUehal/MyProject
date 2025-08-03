@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"net/url"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -177,20 +178,51 @@ func main() {
 
 func sheep(sheepOrAsk *widget.Label, sheeps []string) {
 	ch := make(chan string)
+	ch2 := make(chan string)
+	wg := &sync.WaitGroup{}
 
-	for range sheeps {
+	for range 3 {
 		go func() {
 			ch <- sheeps[rand.Intn(len(sheeps))]
 		}()
 	}
 
-	time.Sleep(1 * time.Second)
-	sheepOrAsk.SetText(fmt.Sprintf("Вот это да!\nВперёд нежданно вырывается %v!\nЕё нагоняет %v!", <-ch, <-ch))
-	sheepOrAsk.Refresh()
+	go func() {
+		ch2 <- sheeps[rand.Intn(len(sheeps))]
+	}()
 
-	fyne.Do(func() {
-		time.Sleep(5 * time.Second)
-		sheepOrAsk.SetText(fmt.Sprintf("И первой приходит: %v!\nАплодисменты!", <-ch))
-	})
+	go func() {
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			time.Sleep(time.Duration(2) * time.Second)
+			fyne.Do(func() {
+				sheepOrAsk.SetText(fmt.Sprintf("Вот это да!\nВперёд нежданно вырывается %v!\nЗа ней устремляется %v!", <-ch, <-ch2))
+				sheepOrAsk.Refresh()
+			})
+		}()
 
+		go func() {
+			defer wg.Done()
+			time.Sleep(time.Duration(6) * time.Second)
+			fyne.Do(func() {
+				sheepOrAsk.SetText(fmt.Sprintf("Невероятно! У самого финиша %v чуть не вылетает с трассы!\nЧто творится?!", <-ch))
+			})
+		}()
+
+		go func() {
+			defer wg.Done()
+			time.Sleep(time.Duration(10) * time.Second)
+			fyne.Do(func() {
+				sheepOrAsk.SetText(fmt.Sprintf("И первой приходит: %v!\nОстальные глотают пыль... Аплодисменты!", <-ch))
+			})
+		}()
+
+		go func() {
+			time.Sleep(time.Duration(15) * time.Second)
+			wg.Wait()
+			close(ch)
+			close(ch2)
+		}()
+	}()
 }
